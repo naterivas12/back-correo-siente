@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Xeokit Viewer</title>
+  <style>
+    html,
+    body,
+    canvas {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+  </style>
+</head>
+
+<body>
+  <canvas id="myCanvas"></canvas>
+  <script type="module">
+    import { Viewer, XKTLoaderPlugin } from "https://cdn.jsdelivr.net/npm/@xeokit/xeokit-sdk/+esm";
+
+    const canvas = document.getElementById("myCanvas");
+    canvas.width = 800;
+    canvas.height = 600;
+
+    const viewer = new Viewer({
+      canvasId: "myCanvas",
+      transparent: true,
+    });
+
+    window.viewer = viewer;
+
+    const xktLoader = new XKTLoaderPlugin(viewer);
+
+    const params = new URLSearchParams(window.location.search);
+    const modelURL = params.get("url");
+
+    async function loadModel(url) {
+      await xktLoader.load({ id: "model", src: url, edges: true });
+      viewer.camera.eye = [108.65005082331933, 58.14867136454718, 9.683228295446861];
+      viewer.camera.look = [76.60082136603849, 29.630149348839574, -25.47062566308567];
+      viewer.camera.up = [-0.3464148151221629, 0.8576817082704342, -0.37997218735347926];
+
+      // Trigger a manual update of camera (which triggers a render internally)
+      viewer.camera.zoom = viewer.camera.zoom; // <- dirty trick to force reflow
+
+      // Let Puppeteer know we are ready — after a delay
+      setTimeout(() => {
+        window.modelIsReady = true;
+      }, 1000); // wait 500ms to allow frame to flush
+    }
+
+    if (modelURL) {
+      loadModel(modelURL);
+    }
+
+    // Expose for Puppeteer
+    window.loadModelAndCapture = loadModel;
+    window.getCanvasBase64 = () => canvas.toDataURL("image/png");
+  </script>
+</body>
+
+</html>
