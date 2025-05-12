@@ -42,88 +42,7 @@
 			const params = new URLSearchParams(window.location.search);
 			const modelURL = params.get("url");
 
-			async function applyColors(viewer, config) {
-				if (!viewer || !viewer.scene || !viewer.scene.objects) return;
-
-				const { sheetData, productos, selectedProduct, configProducts } =
-					config;
-
-				// Función para obtener el nombre métrico según el producto seleccionado
-				const getMetricName = (selectedProduction, item) => {
-					if (selectedProduction === "ACEDIM") {
-						return item.TSC_ACEDIM;
-					} else if (selectedProduction === "CONCRETO") {
-						return item.TSC_CONCRETO;
-					}
-					return item.PLANO;
-				};
-
-				// Obtener el producto seleccionado
-				const selectedProduction =
-					selectedProduct?.PRODUCTO || configProducts[0]?.name;
-
-				// Iterar sobre todos los objetos en la escena
-				Object.keys(viewer.scene.objects).forEach((objectId) => {
-					const object = viewer.scene.objects[objectId];
-					const item = sheetData.find((data) => data.ID === objectId);
-
-					if (!item) {
-						object.colorize = [0, 0, 0];
-						object.opacity = 0;
-						object.visible = false;
-						return;
-					}
-
-					// Manejar la sectorización
-					if (item.TSC_PRODUCTO === "SECTORIZACION") {
-						object.colorize = [0, 0, 0];
-						object.opacity = 0.8;
-						object.visible = true;
-						return;
-					}
-
-					// Manejar los niveles
-					if (item.TSC_PRODUCTO === "NIVELES") {
-						object.colorize = [0, 0, 0];
-						object.opacity = 0.8;
-						object.visible = true;
-						return;
-					}
-
-					// Aplicar colores basados en el producto
-					const metricName = getMetricName(selectedProduction, item);
-					if (metricName === "--") {
-						object.colorize = [0, 0, 0];
-						object.opacity = 0.2;
-						object.visible = true;
-						return;
-					}
-
-					// Colorear según el producto
-					const isAcedim = configProducts.some(
-						(p) => p.name.toLowerCase() === "acedim"
-					);
-					const isConcreto = configProducts.some(
-						(p) => p.name.toLowerCase() === "concreto"
-					);
-
-					if (isAcedim && item.TSC_ACEDIM !== "--") {
-						object.colorize = [0.012, 0.686, 0.318]; // Verde
-						object.opacity = 1.0;
-						object.visible = true;
-					} else if (isConcreto && item.TSC_CONCRETO !== "--") {
-						object.colorize = [0.988, 0.016, 0.008]; // Rojo
-						object.opacity = 1.0;
-						object.visible = true;
-					} else {
-						object.colorize = [0.5, 0.5, 0.5]; // Gris
-						object.opacity = 0.3;
-						object.visible = true;
-					}
-				});
-			}
-
-			async function loadModel(url, config) {
+			async function loadModel(url) {
 				await xktLoader.load({ id: "model", src: url, edges: true });
 				viewer.camera.eye = [
 					108.65005082331933, 58.14867136454718, 9.683228295446861,
@@ -135,24 +54,14 @@
 					-0.3464148151221629, 0.8576817082704342, -0.37997218735347926,
 				];
 
-				// Aplicar colores según la configuración
-				if (config) {
-					await applyColors(viewer, config);
-				}
+				// Trigger a manual update of camera (which triggers a render internally)
+				viewer.camera.zoom = viewer.camera.zoom; // <- dirty trick to force reflow
 
-				// Trigger a manual update of camera
-				viewer.camera.zoom = viewer.camera.zoom;
-
-				// Let Puppeteer know we are ready
+				// Let Puppeteer know we are ready — after a delay
 				setTimeout(() => {
 					window.modelIsReady = true;
-				}, 1000);
+				}, 1000); // wait 500ms to allow frame to flush
 			}
-
-			// Función global para cargar modelo y aplicar configuración
-			window.loadModelAndCapture = async function (url, config) {
-				await loadModel(url, config);
-			};
 
 			if (modelURL) {
 				loadModel(modelURL);
