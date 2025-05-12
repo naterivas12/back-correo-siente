@@ -1,66 +1,166 @@
+<!-- @format -->
+
 <!DOCTYPE html>
 <html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<title>Xeokit Viewer</title>
+		<style>
+			html,
+			body,
+			canvas {
+				margin: 0;
+				padding: 0;
+				width: 100vw;
+				height: 100vh;
+				overflow: hidden;
+			}
+		</style>
+	</head>
 
-<head>
-  <meta charset="UTF-8" />
-  <title>Xeokit Viewer</title>
-  <style>
-    html,
-    body,
-    canvas {
-      margin: 0;
-      padding: 0;
-      width: 100vw;
-      height: 100vh;
-      overflow: hidden;
-    }
-  </style>
-</head>
+	<body>
+		<canvas id="myCanvas"></canvas>
+		<script type="module">
+			import {
+				Viewer,
+				XKTLoaderPlugin,
+			} from "https://cdn.jsdelivr.net/npm/@xeokit/xeokit-sdk/+esm";
 
-<body>
-  <canvas id="myCanvas"></canvas>
-  <script type="module">
-    import { Viewer, XKTLoaderPlugin } from "https://cdn.jsdelivr.net/npm/@xeokit/xeokit-sdk/+esm";
+			const canvas = document.getElementById("myCanvas");
+			canvas.width = 800;
+			canvas.height = 600;
 
-    const canvas = document.getElementById("myCanvas");
-    canvas.width = 800;
-    canvas.height = 600;
+			const viewer = new Viewer({
+				canvasId: "myCanvas",
+				transparent: true,
+			});
 
-    const viewer = new Viewer({
-      canvasId: "myCanvas",
-      transparent: true,
-    });
+			window.viewer = viewer;
 
-    window.viewer = viewer;
+			const xktLoader = new XKTLoaderPlugin(viewer);
 
-    const xktLoader = new XKTLoaderPlugin(viewer);
+			const params = new URLSearchParams(window.location.search);
+			const modelURL = params.get("url");
 
-    const params = new URLSearchParams(window.location.search);
-    const modelURL = params.get("url");
+			async function applyColors(viewer, config) {
+				if (!viewer || !viewer.scene || !viewer.scene.objects) return;
 
-    async function loadModel(url) {
-      await xktLoader.load({ id: "model", src: url, edges: true });
-      viewer.camera.eye = [108.65005082331933, 58.14867136454718, 9.683228295446861];
-      viewer.camera.look = [76.60082136603849, 29.630149348839574, -25.47062566308567];
-      viewer.camera.up = [-0.3464148151221629, 0.8576817082704342, -0.37997218735347926];
+				const { sheetData, productos, selectedProduct, configProducts } =
+					config;
 
-      // Trigger a manual update of camera (which triggers a render internally)
-      viewer.camera.zoom = viewer.camera.zoom; // <- dirty trick to force reflow
+				// Función para obtener el nombre métrico según el producto seleccionado
+				const getMetricName = (selectedProduction, item) => {
+					if (selectedProduction === "ACEDIM") {
+						return item.TSC_ACEDIM;
+					} else if (selectedProduction === "CONCRETO") {
+						return item.TSC_CONCRETO;
+					}
+					return item.PLANO;
+				};
 
-      // Let Puppeteer know we are ready — after a delay
-      setTimeout(() => {
-        window.modelIsReady = true;
-      }, 1000); // wait 500ms to allow frame to flush
-    }
+				// Obtener el producto seleccionado
+				const selectedProduction =
+					selectedProduct?.PRODUCTO || configProducts[0]?.name;
 
-    if (modelURL) {
-      loadModel(modelURL);
-    }
+				// Iterar sobre todos los objetos en la escena
+				Object.keys(viewer.scene.objects).forEach((objectId) => {
+					const object = viewer.scene.objects[objectId];
+					const item = sheetData.find((data) => data.ID === objectId);
 
-    // Expose for Puppeteer
-    window.loadModelAndCapture = loadModel;
-    window.getCanvasBase64 = () => canvas.toDataURL("image/png");
-  </script>
-</body>
+					if (!item) {
+						object.colorize = [0, 0, 0];
+						object.opacity = 0;
+						object.visible = false;
+						return;
+					}
 
+					// Manejar la sectorización
+					if (item.TSC_PRODUCTO === "SECTORIZACION") {
+						object.colorize = [0, 0, 0];
+						object.opacity = 0.8;
+						object.visible = true;
+						return;
+					}
+
+					// Manejar los niveles
+					if (item.TSC_PRODUCTO === "NIVELES") {
+						object.colorize = [0, 0, 0];
+						object.opacity = 0.8;
+						object.visible = true;
+						return;
+					}
+
+					// Aplicar colores basados en el producto
+					const metricName = getMetricName(selectedProduction, item);
+					if (metricName === "--") {
+						object.colorize = [0, 0, 0];
+						object.opacity = 0.2;
+						object.visible = true;
+						return;
+					}
+
+					// Colorear según el producto
+					const isAcedim = configProducts.some(
+						(p) => p.name.toLowerCase() === "acedim"
+					);
+					const isConcreto = configProducts.some(
+						(p) => p.name.toLowerCase() === "concreto"
+					);
+
+					if (isAcedim && item.TSC_ACEDIM !== "--") {
+						object.colorize = [0.012, 0.686, 0.318]; // Verde
+						object.opacity = 1.0;
+						object.visible = true;
+					} else if (isConcreto && item.TSC_CONCRETO !== "--") {
+						object.colorize = [0.988, 0.016, 0.008]; // Rojo
+						object.opacity = 1.0;
+						object.visible = true;
+					} else {
+						object.colorize = [0.5, 0.5, 0.5]; // Gris
+						object.opacity = 0.3;
+						object.visible = true;
+					}
+				});
+			}
+
+			async function loadModel(url, config) {
+				await xktLoader.load({ id: "model", src: url, edges: true });
+				viewer.camera.eye = [
+					108.65005082331933, 58.14867136454718, 9.683228295446861,
+				];
+				viewer.camera.look = [
+					76.60082136603849, 29.630149348839574, -25.47062566308567,
+				];
+				viewer.camera.up = [
+					-0.3464148151221629, 0.8576817082704342, -0.37997218735347926,
+				];
+
+				// Aplicar colores según la configuración
+				if (config) {
+					await applyColors(viewer, config);
+				}
+
+				// Trigger a manual update of camera
+				viewer.camera.zoom = viewer.camera.zoom;
+
+				// Let Puppeteer know we are ready
+				setTimeout(() => {
+					window.modelIsReady = true;
+				}, 1000);
+			}
+
+			// Función global para cargar modelo y aplicar configuración
+			window.loadModelAndCapture = async function (url, config) {
+				await loadModel(url, config);
+			};
+
+			if (modelURL) {
+				loadModel(modelURL);
+			}
+
+			// Expose for Puppeteer
+			window.loadModelAndCapture = loadModel;
+			window.getCanvasBase64 = () => canvas.toDataURL("image/png");
+		</script>
+	</body>
 </html>
