@@ -158,7 +158,8 @@ export async function POST(req) {
 
 		// Cargar el viewer y renderizar el modelo
 		console.log("Loading viewer page...");
-		await page.goto("http://localhost:3500/viewer.html");
+		await page.goto("https://back-correo-siente.vercel.app/viewer.html");
+		// await page.goto("http://localhost:3500/viewer.html");
 
 		console.log("Evaluating model in viewer...");
 		try {
