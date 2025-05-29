@@ -348,11 +348,11 @@ export async function POST(req) {
 					);
 
 					// Verificar si matchingMetric existe antes de acceder a sus propiedades
-					if (matchingMetric) {
-						console.log(
-							`Encontrada coincidencia parcial para ${metricName}: ${matchingMetric.name}--- ${matchingMetric.delay}`
-						);
-					}
+					// if (matchingMetric) {
+					// 	console.log(
+					// 		`Encontrada coincidencia parcial para ${metricName}: ${matchingMetric.name}--- ${matchingMetric.delay}`
+					// 	);
+					// }
 
 					// Si no hay métrica pero está en un nivel válido, mostrar en gris
 					if (!matchingMetric) {
@@ -375,39 +375,116 @@ export async function POST(req) {
 					let statusColor = [0.667, 0.667, 0.667]; // Color por defecto
 					let opacity = 1.0;
 
-					// Evaluar el delay y aplicar colores correspondientes
-					if (delay !== undefined && delay !== null) {
-						try {
-							// Convertir delay a número si es string
-							const delayNum = Number(delay);
-							console.log(`Delay para ${objectId} (${metricName}): ${delayNum}`);
+					// Determinar visibilidad y color según el tipo de solicitud
+					const tipo = selectedProduct.tipo || "";
+					let shouldBeVisible = true;
+					let colorToApply = [0.5, 0.5, 0.5]; // Color gris por defecto
 
-							// Determinar el estado y color basado en delay
-							let estado, delayColor;
-							if (delayNum < 0) {
-								estado = "Temprano (Early)";
-								delayColor = getStatusColor("Early");
-							} else if (delayNum === 0) {
-								estado = "A tiempo (On Time)";
-								delayColor = getStatusColor("On Time");
-							} else {
-								estado = "Tarde (Late)";
-								delayColor = getStatusColor("Late");
+					// Procesar según el tipo de solicitud
+					if (tipo === "llegada") {
+						// Para tipo "llegada", mostrar elementos con delay y colorear según su estado
+						if (delay !== undefined && delay !== null) {
+							try {
+								// Convertir delay a número si es string
+								const delayNum = Number(delay);
+								
+								// Determinar el estado y color basado en delay
+								let estado;
+								if (delayNum < 0) {
+									estado = "Temprano (Early)";
+									colorToApply = getStatusColor("Early");
+								} else if (delayNum === 0) {
+									estado = "A tiempo (On Time)";
+									colorToApply = getStatusColor("On Time");
+								} else {
+									estado = "Tarde (Late)";
+									colorToApply = getStatusColor("Late");
+								}
+								
+								console.log(`Tipo llegada - Estado para ${objectId}: ${estado}`);
+								shouldBeVisible = true;
+							} catch (error) {
+								console.error(`Error al procesar delay para ${objectId}:`, error);
+								shouldBeVisible = true;
 							}
-
-							console.log(`Estado basado en delay para ${objectId}: ${estado}`);
-
-							// Aplicar el color al objeto
-							object.colorize = delayColor;
-							object.opacity = opacity;
-							object.visible = true;
-						} catch (error) {
-							console.error(`Error al procesar delay para ${objectId}:`, error);
-							// En caso de error, aplicar color por defecto
-							object.colorize = [0.5, 0.5, 0.5]; // Color gris por defecto
-							object.opacity = opacity;
-							object.visible = true;
+						} else {
+							// Si no tiene delay, mostrar en gris
+							colorToApply = [0.5, 0.5, 0.5];
+							shouldBeVisible = true;
 						}
+					} else if (tipo === "atencion") {
+						// Para tipo "atencion", mostrar elementos con propiedad Atencion
+						if (matchingMetric.Atencion) {
+							colorToApply = getStatusColorMetrica(matchingMetric.Atencion);
+							shouldBeVisible = true;
+							console.log(`Tipo atencion - Valor: ${matchingMetric.Atencion}`);
+						} else {
+							// Si no tiene Atencion, ocultar
+							shouldBeVisible = false;
+						}
+					} else if (tipo === "delayMenorIgual" || tipo === "delayMayor") {
+						// Mantener la lógica existente para delayMenorIgual y delayMayor
+						if (delay !== undefined && delay !== null) {
+							try {
+								// Convertir delay a número si es string
+								const delayNum = Number(delay);
+								
+								// Determinar el estado y color basado en delay
+								let estado;
+								if (delayNum < 0) {
+									estado = "Temprano (Early)";
+									colorToApply = getStatusColor("Early");
+									// Para tipo delayMayor, ocultar elementos tempranos
+									if (tipo === "delayMayor") shouldBeVisible = false;
+								} else if (delayNum === 0) {
+									estado = "A tiempo (On Time)";
+									colorToApply = getStatusColor("On Time");
+									// Para tipo delayMayor, ocultar elementos a tiempo
+									if (tipo === "delayMayor") shouldBeVisible = false;
+								} else {
+									estado = "Tarde (Late)";
+									colorToApply = getStatusColor("Late");
+									// Para tipo delayMenorIgual, ocultar elementos tardíos
+									if (tipo === "delayMenorIgual") shouldBeVisible = false;
+								}
+								
+								console.log(`Estado basado en delay para ${objectId}: ${estado}, tipo: ${tipo}, visible: ${shouldBeVisible}`);
+							} catch (error) {
+								console.error(`Error al procesar delay para ${objectId}:`, error);
+								shouldBeVisible = true;
+							}
+						} else {
+							// Si no tiene delay, mostrar en gris
+							colorToApply = [0.5, 0.5, 0.5];
+							shouldBeVisible = true;
+						}
+					} else if (tipo === "futuro") {
+						// Para tipo futuro, mostrar todos los elementos
+						shouldBeVisible = true;
+						
+						// Intentar aplicar colores basados en otras propiedades
+						if (matchingMetric.EstadoPlanner) {
+							colorToApply = getStatusColor(matchingMetric.EstadoPlanner);
+						} else if (matchingMetric.ColorEstadoReal) {
+							colorToApply = hexToRgb(matchingMetric.ColorEstadoReal);
+						} else {
+							colorToApply = [0.5, 0.5, 0.5]; // Color gris por defecto
+						}
+					} else {
+						// Para cualquier otro tipo, mostrar todos los elementos
+						shouldBeVisible = true;
+						colorToApply = [0.5, 0.5, 0.5]; // Color gris por defecto
+					}
+
+					// Aplicar el color y visibilidad al objeto
+					object.colorize = colorToApply;
+					
+					if (shouldBeVisible) {
+						object.opacity = opacity;
+						object.visible = true;
+					} else {
+						object.opacity = 0;
+						object.visible = false;
 					}
 
 					// Si no se aplicó color por delay, verificar otras propiedades o aplicar color por defecto
