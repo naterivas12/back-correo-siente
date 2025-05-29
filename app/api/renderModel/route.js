@@ -182,6 +182,27 @@ export async function POST(req) {
 				}
 				await window.loadModelAndCapture(modelUrl);
 			}, url);
+			
+			// Configurar la cámara explícitamente después de cargar el modelo
+			await page.evaluate(() => {
+				console.log("Configurando cámara desde route.js...");
+				if (window.viewer) {
+					// Configurar la posición de la cámara
+					window.viewer.camera.eye = [65.83325965349763, 46.68339132916079, -73.60435450702926];
+					window.viewer.camera.look = [22.170379984173927, 25.730421719228485, -27.245689680403736];
+					window.viewer.camera.up = [-0.21428231996931182, 0.9499059111047579, 0.22751230163841632];
+					window.viewer.camera.perspective.fov = 60;
+					
+					// Forzar actualización de la cámara
+					window.viewer.camera.zoom = window.viewer.camera.zoom;
+					
+					console.log("Cámara configurada desde route.js", {
+						eye: window.viewer.camera.eye,
+						look: window.viewer.camera.look,
+						up: window.viewer.camera.up
+					});
+				}
+			});
 		} catch (error) {
 			console.error("Error al cargar el modelo:", error);
 			throw error;

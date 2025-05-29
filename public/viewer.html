@@ -43,24 +43,33 @@
 			const modelURL = params.get("url");
 
 			async function loadModel(url) {
-				await xktLoader.load({ id: "model", src: url, edges: true });
-				viewer.camera.eye = [
-					108.65005082331933, 58.14867136454718, 9.683228295446861,
-				];
-				viewer.camera.look = [
-					76.60082136603849, 29.630149348839574, -25.47062566308567,
-				];
-				viewer.camera.up = [
-					-0.3464148151221629, 0.8576817082704342, -0.37997218735347926,
-				];
-
-				// Trigger a manual update of camera (which triggers a render internally)
-				viewer.camera.zoom = viewer.camera.zoom; // <- dirty trick to force reflow
-
-				// Let Puppeteer know we are ready — after a delay
-				setTimeout(() => {
-					window.modelIsReady = true;
-				}, 1000); // wait 500ms to allow frame to flush
+				try {
+					// Cargar el modelo
+					await xktLoader.load({ id: "model", src: url, edges: true });
+					console.log("Modelo cargado correctamente");
+					
+					// Configurar la cámara después de que el modelo esté cargado
+					viewer.camera.eye = [65.83325965349763, 46.68339132916079, -73.60435450702926];
+					viewer.camera.look = [22.170379984173927, 25.730421719228485, -27.245689680403736];
+					viewer.camera.up = [-0.21428231996931182, 0.9499059111047579, 0.22751230163841632];
+					viewer.camera.perspective.fov = 60;
+					
+					// Forzar una actualización de la cámara
+					viewer.camera.zoom = viewer.camera.zoom; // Truco para forzar actualización
+					console.log("Cámara configurada", {
+						eye: viewer.camera.eye,
+						look: viewer.camera.look,
+						up: viewer.camera.up
+					});
+					
+					// Dar tiempo para que se renderice antes de notificar que está listo
+					setTimeout(() => {
+						window.modelIsReady = true;
+						console.log("Modelo listo para captura");
+					}, 1000);
+				} catch (error) {
+					console.error("Error al cargar el modelo:", error);
+				}
 			}
 
 			if (modelURL) {
