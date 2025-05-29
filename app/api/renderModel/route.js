@@ -333,7 +333,7 @@ export async function POST(req) {
 					// Buscar una métrica cuyo nombre coincida con metricName
 					// IMPORTANTE: Verificar que metricName sea válido antes de usarlo
 					if (!metricName) {
-						metricName = "";
+						metricName = "a";
 					}
 					
 					// Buscar la métrica que coincida con el nombre
